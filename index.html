@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>12-4-1</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+		}
+
+		p {
+			text-align: center;
+		}
+
+		#canvas1 {
+			border: 1px solid gray;
+		}
+	</style>
+</head>
+
+<body>
+	<p><canvas id="canvas1" width="320" height="480" tabindex="0"></canvas></p>
+
+	<script>
+		const canvas1 = document.getElementById("canvas1");
+		const ctx1 = canvas1.getContext("2d");
+
+		// ゲームオブジェクトの初期値
+		// ゲーム画面
+		const REFLESH_RATE = 5
+		const DISPLAY_START_X = 0
+		const DISPLAY_START_Y = 0
+		const DISPLAY_HEIGHT = 480
+		const DISPLAY_WIDTH = 320
+		const DISPLAY_FONT = "20px sans-serif"
+
+		// ターゲット
+		const INIT_TARGET_X = 250
+		const INIT_TARGET_Y = 100
+		const INIT_TARGET_DIR = 1
+		const TARGET_COLOR = "black"
+		const TARGET_HEIGHT = 10
+		const TARGET_WIDTH = 50
+
+		// プレイヤー
+		const INIT_PLAYER_X = 250
+		const INIT_PLAYER_Y = 350
+		const PLAYER_COLOR = "blue"
+		const PLAYER_HEIGHT = 10
+		const PLAYER_WIDTH = 50
+
+		// ボール
+		const INIT_BALL_X = -10
+		const INIT_BALL_Y = -10
+		const BALL_COLOR = "red"
+		const BALL_RADIUS = 5
+		const BALL_ANGLE = {
+			start: 0,
+			end: 2 * Math.PI,
+			isClockWise: false
+		}
+		const BALL_VELOCITY = 5
+
+		// ポイント
+		const INIT_POINTS = 0
+		const POINTS_FONT_COLOR = "black"
+
+
+		// アイテム
+		// 0-9までの数字キーで操作する。
+		// そのため、10個より多いアイテムは登録できない
+		const ITEM_BALL_INCREMENT_ONE = {
+			useFunc: () => {
+				balls.push({
+					playerX: INIT_PLAYER_X,
+					x: INIT_BALL_X,
+					y: INIT_BALL_Y,
+					points: 1,
+					isDead: false
+				})
+			},
+			price: 10,
+			icon: "ball+1",
+			discreption: "発射するボールをひとつ増やします。",
+			key: "1"
+		}
+		const ITEM_BALL_POINTS_INCREMENT_DOUBLE = {
+			useFunc: () => {
+				balls.forEach(ball => {
+					ball.points *= 2
+				})
+			},
+			price: 100,
+			icon: "point×2",
+			discreption: "現在持っているボールの獲得ポイントを2倍にします",
+			key: "2"
+		}
+		const ITEMS = [
+			ITEM_BALL_INCREMENT_ONE,
+			ITEM_BALL_POINTS_INCREMENT_DOUBLE
+		]
+		const ITEM_MARGIN_X = 5
+		const ITEM_MARGIN_Y = 5
+		const ITEMS_START_X = 0
+		const ITEMS_START_Y = (INIT_PLAYER_Y + PLAYER_HEIGHT) + ITEM_MARGIN_Y
+		const ITEM_HEIGHT = (DISPLAY_HEIGHT - ITEMS_START_Y) / 2 - ITEM_MARGIN_Y
+		const ITEM_WIDTH = DISPLAY_WIDTH / 5 - ITEM_MARGIN_X
+		const ITEM_PRICE_FONT = "13px sans-serif"
+
+		// ゲームオブジェクト
+		const target = { x: INIT_TARGET_X, y: INIT_TARGET_Y, dir: INIT_TARGET_DIR }; // ターゲットのxy位置と移動方向
+		const player = { x: INIT_PLAYER_X, y: INIT_PLAYER_Y }; // プレーヤのxy位置
+		const balls = [
+			{
+				playerX: INIT_PLAYER_X,
+				x: INIT_BALL_X,
+				y: INIT_BALL_Y,
+				points: 1,
+				isDead: false
+			}
+		]; // ボールのxy位置
+		let points = INIT_POINTS; // 得点
+		const playerInfo = {
+			isShooting: false,
+		}
+
+		// 一定時間毎にプログラムgame1を起動させる
+		setInterval(game1, REFLESH_RATE);
+
+		// game1関数
+		function game1() {
+			ctx1.clearRect(DISPLAY_START_X, DISPLAY_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+
+			// 描画(ターゲット)
+			ctx1.fillStyle = TARGET_COLOR;
+			ctx1.fillRect(target.x - (TARGET_WIDTH / 2), target.y - (TARGET_HEIGHT / 2), TARGET_WIDTH, TARGET_HEIGHT);
+
+			// 描画(得点)
+			ctx1.fillStyle = POINTS_FONT_COLOR;
+			ctx1.font = DISPLAY_FONT;
+			ctx1.textBaseline = "bottom"
+			ctx1.textAlign = "center"
+			ctx1.fillText(points, target.x, target.y - (TARGET_HEIGHT / 2));
+
+			// 描画(プレーヤ)
+			ctx1.fillStyle = PLAYER_COLOR;
+			ctx1.fillRect(player.x - (PLAYER_WIDTH / 2), player.y - (PLAYER_HEIGHT / 2), PLAYER_WIDTH, PLAYER_HEIGHT);
+
+			// 描画(ボール)
+			ctx1.fillStyle = BALL_COLOR;
+			ctx1.beginPath();
+			balls.forEach(ball => {
+				if (!ball.isDead) {
+					ctx1.arc(ball.x, ball.y, BALL_RADIUS, BALL_ANGLE.start, BALL_ANGLE.end, BALL_ANGLE.isClockWise);
+				}
+			})
+			ctx1.closePath();
+			ctx1.fill();
+
+			// 描画(アイテム)
+			ITEMS.forEach((item, i) => {
+				// 矩形描画
+				ctx1.fillStyle = "black";
+				const strokeX = (ITEMS_START_X + (ITEM_MARGIN_X / 2)) + ((i % 5) * ITEM_WIDTH) + (ITEM_MARGIN_X * (i % 5))
+				const isSecondStack = i > 4 ? true : false
+				const strokeY = isSecondStack
+					? ITEMS_START_Y + ITEM_HEIGHT + ITEM_MARGIN_Y
+					: ITEMS_START_Y
+				ctx1.strokeRect(strokeX, strokeY, ITEM_WIDTH, ITEM_HEIGHT);
+
+				// 文字描画
+				// icon
+				ctx1.font = DISPLAY_FONT
+				ctx1.textBaseline = "top"
+				ctx1.textAlign = "center"
+				ctx1.fillText(item.icon, strokeX + (ITEM_WIDTH / 2), strokeY, ITEM_WIDTH);
+				// price
+				ctx1.textBaseline = "bottom"
+				ctx1.font = ITEM_PRICE_FONT
+				ctx1.fillText(`price:${item.price}`, strokeX + (ITEM_WIDTH / 2), strokeY + ITEM_HEIGHT, ITEM_WIDTH);
+			})
+
+			// 移動計算
+			target.x += target.dir;
+
+			for (let i = 0; i < balls.length; i++) {
+				balls[i].y -= BALL_VELOCITY;
+			}
+
+			// ターゲットは画面端で折り返す
+			if (target.x < DISPLAY_START_X + (TARGET_WIDTH / 2) || DISPLAY_WIDTH - (TARGET_WIDTH / 2) < target.x) {
+				target.dir *= -1;
+			}
+
+			// ターゲットとボールの衝突判定
+			balls.forEach(ball => {
+				if ((ball.y === INIT_TARGET_Y) && (Math.abs(target.x - ball.x) < (TARGET_WIDTH / 2))) {
+					points += ball.points;
+					ball.isDead = true
+					playerInfo.isShooting = false
+				}
+			})
+
+			// 連打対応
+			// 全てのボールが画面外に出ると、次のボールを打てる
+			balls.forEach(ball => {
+				if (ball.y < DISPLAY_START_Y || ball.isDead) {
+					playerInfo.isShooting = false
+				}
+			})
+		}
+
+		// シュート関数
+		canvas1.addEventListener("mousedown", function (e) {
+			if (!playerInfo.isShooting && e.button === 0) {
+				balls.forEach((ball, i) => {
+					playerInfo.isShooting = true
+					const ballPosition = (PLAYER_WIDTH / (balls.length + 1)) * (i + 1) + (player.x - (PLAYER_WIDTH / 2))
+					ball.isDead = false
+					ball.x = ballPosition;
+					ball.y = player.y;
+					ball.playerX = player.x
+				})
+			}
+		});
+
+		// プレーヤコントロール
+		canvas1.addEventListener("mousemove", function (e) {
+			const rect = e.target.getBoundingClientRect();
+			player.x = e.clientX - rect.left;
+		});
+
+		// アイテム購入
+		canvas1.addEventListener("keydown", function (e) {
+			if (!playerInfo.isShooting) {
+				ITEMS.forEach(item => {
+					if (e.key === item.key && points >= item.price) {
+						item.useFunc()
+						points -= item.price
+					}
+				})
+			}
+		}, false);
+	</script>
+</body>
+
+</html>
